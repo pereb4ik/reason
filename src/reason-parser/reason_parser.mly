@@ -1224,6 +1224,7 @@ let add_brace_attr expr =
 %token WITH
 %token <string * Location.t> COMMENT
 %token <string> DOCSTRING
+%token MATCH
 
 %token EOL
 
@@ -2840,6 +2841,26 @@ optional_expr_extension:
  * Then unattributed_expr represents the concrete unattributed expr
  * while expr adds an attribute rule to unattributed_expr_template.
  *)
+ 
+boddy:
+  | LBRACE match_cases(seq_expr) RBRACE { $2 }
+  | WITH match_cases(expr) { $2 }
+;
+
+headd:
+  | SWITCH {}
+  | MATCH {}
+;
+
+match_switch:
+  headd optional_expr_extension simple_expr_no_constructor boddy { $2 (mkexp (Pexp_match ($3, $4))) }
+;
+
+in_eqal:
+  | IN {}
+  | EQUAL {}
+;
+
 %inline unattributed_expr_template(E):
 mark_position_exp
   ( simple_expr
@@ -2869,9 +2890,13 @@ mark_position_exp
    *)
   | FUN optional_expr_extension match_cases(expr) %prec below_BAR
     { $2 (mkexp (Pexp_function $3)) }
-  | SWITCH optional_expr_extension simple_expr_no_constructor
+  | match_switch { $1 }
+  (*| SWITCH optional_expr_extension simple_expr_no_constructor
     LBRACE match_cases(seq_expr) RBRACE
     { $2 (mkexp (Pexp_match ($3, $5))) }
+  | MATCH optional_expr_extension simple_expr_no_constructor
+    WITH match_cases(expr)
+    { $2 (mkexp (Pexp_match ($3, $5))) }*)
   | TRY optional_expr_extension simple_expr_no_constructor
     LBRACE match_cases(seq_expr) RBRACE
     { $2 (mkexp (Pexp_try ($3, $5))) }
@@ -2880,7 +2905,7 @@ mark_position_exp
     { $2 (mkexp (Pexp_ifthenelse($3, $4, $5))) }
   | WHILE optional_expr_extension parenthesized_expr simple_expr
     { $2 (mkexp (Pexp_while($3, $4))) }
-  | FOR optional_expr_extension LPAREN pattern IN expr direction_flag expr RPAREN
+  | FOR optional_expr_extension LPAREN pattern in_eqal expr direction_flag expr RPAREN
     simple_expr
     { $2 (mkexp (Pexp_for($4, $6, $8, $7, $10))) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
@@ -4970,6 +4995,7 @@ single_attr_id:
   | WHEN        { "when" }
   | WHILE       { "while" }
   | WITH        { "with" }
+  | MATCH       { "match" }
 (* mod/land/lor/lxor/lsl/lsr/asr are not supported for now *)
 ;
 

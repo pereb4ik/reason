@@ -134,6 +134,7 @@ let keyword_table, reverse_keyword_table =
     "when", WHEN;
     "while", WHILE;
     "with", WITH;
+    "match", MATCH;
 
     "mod", INFIXOP3("mod");
     "land", INFIXOP3("land");
