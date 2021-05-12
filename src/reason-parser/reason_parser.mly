@@ -1365,7 +1365,7 @@ conflicts.
    same precedence. *)
 %left     SHARPOP MINUSGREATER LBRACKET DOT
 (* Finally, the first tokens of simple_expr are above everything else. *)
-%nonassoc LBRACKETLESS LBRACELESS LBRACE LPAREN
+%nonassoc LBRACKETLESS LBRACELESS LBRACE DO LPAREN
 
 
 
@@ -2480,6 +2480,8 @@ braced_expr:
 mark_position_exp
   ( LBRACE seq_expr RBRACE
     { add_brace_attr $2 }
+  | DO seq_expr DONE
+    { add_brace_attr $2 }
   | LBRACE DOTDOTDOT expr_optional_constraint COMMA? RBRACE
     { let loc = mklocation $symbolstartpos $endpos in
       syntax_error_exp loc
@@ -2841,7 +2843,7 @@ optional_expr_extension:
  * Then unattributed_expr represents the concrete unattributed expr
  * while expr adds an attribute rule to unattributed_expr_template.
  *)
- 
+
 boddy:
   | LBRACE match_cases(seq_expr) RBRACE { $2 }
   | WITH match_cases(expr) { $2 }
@@ -2908,6 +2910,8 @@ mark_position_exp
   | FOR optional_expr_extension LPAREN pattern in_eqal expr direction_flag expr RPAREN
     simple_expr
     { $2 (mkexp (Pexp_for($4, $6, $8, $7, $10))) }
+  (*| FOR optional_expr_extension pattern EQUAL simple_expr direction_flag simple_expr simple_expr
+    {  $2 (mkexp (Pexp_for($3, $5, $7, $6, $8))) }*)
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
     { let loc_colon = mklocation $startpos($2) $endpos($2) in
       let loc = mklocation $symbolstartpos $endpos in
@@ -4186,8 +4190,13 @@ record_label_declaration:
     }
 ;
 
+%inline delim:
+  | SEMI {}
+  | COMMA { }
+;
+
 record_declaration:
-  LBRACE lseparated_nonempty_list(COMMA, record_label_declaration) COMMA? RBRACE
+  | LBRACE lseparated_nonempty_list(delim, record_label_declaration) delim? RBRACE
   { $2 }
 ;
 
