@@ -2893,12 +2893,6 @@ mark_position_exp
   | FUN optional_expr_extension match_cases(expr) %prec below_BAR
     { $2 (mkexp (Pexp_function $3)) }
   | match_switch { $1 }
-  (*| SWITCH optional_expr_extension simple_expr_no_constructor
-    LBRACE match_cases(seq_expr) RBRACE
-    { $2 (mkexp (Pexp_match ($3, $5))) }
-  | MATCH optional_expr_extension simple_expr_no_constructor
-    WITH match_cases(expr)
-    { $2 (mkexp (Pexp_match ($3, $5))) }*)
   | TRY optional_expr_extension simple_expr_no_constructor
     LBRACE match_cases(seq_expr) RBRACE
     { $2 (mkexp (Pexp_try ($3, $5))) }
@@ -2907,11 +2901,12 @@ mark_position_exp
     { $2 (mkexp (Pexp_ifthenelse($3, $4, $5))) }
   | WHILE optional_expr_extension parenthesized_expr simple_expr
     { $2 (mkexp (Pexp_while($3, $4))) }
+  | FOR optional_expr_extension pattern in_eqal expr direction_flag simple_expr
+    braced_expr
+    { $2 (mkexp (Pexp_for($3, $5, $7, $6, $8))) }
   | FOR optional_expr_extension LPAREN pattern in_eqal expr direction_flag expr RPAREN
     simple_expr
     { $2 (mkexp (Pexp_for($4, $6, $8, $7, $10))) }
-  (*| FOR optional_expr_extension pattern EQUAL simple_expr direction_flag simple_expr simple_expr
-    {  $2 (mkexp (Pexp_for($3, $5, $7, $6, $8))) }*)
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
     { let loc_colon = mklocation $startpos($2) $endpos($2) in
       let loc = mklocation $symbolstartpos $endpos in
@@ -4196,7 +4191,7 @@ record_label_declaration:
 ;
 
 record_declaration:
-  | LBRACE lseparated_nonempty_list(delim, record_label_declaration) delim? RBRACE
+  LBRACE lseparated_nonempty_list(delim, record_label_declaration) delim? RBRACE
   { $2 }
 ;
 
