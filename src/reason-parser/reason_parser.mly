@@ -1058,6 +1058,9 @@ let add_brace_attr expr =
   in
   { expr with pexp_attributes= attr :: expr.pexp_attributes }
 
+let print_warning msg =
+  Printf.fprintf stderr "%s%!\n" msg
+
 %}
 
 %[@recover.prelude
@@ -1161,6 +1164,7 @@ let add_brace_attr expr =
 %token OF
 %token PRI
 %token SWITCH
+%token MATCH
 %token MINUS
 %token MINUSDOT
 %token MINUSGREATER
@@ -1212,7 +1216,6 @@ let add_brace_attr expr =
 %token WITH
 %token <string * Location.t> COMMENT
 %token <string> DOCSTRING
-%token MATCH
 
 %token EOL
 
@@ -1353,8 +1356,8 @@ conflicts.
    same precedence. *)
 %left     SHARPOP MINUSGREATER LBRACKET DOT
 (* Finally, the first tokens of simple_expr are above everything else. *)
-%nonassoc LBRACKETLESS LBRACELESS LBRACE DO LPAREN
-
+%nonassoc LBRACKETLESS LBRACELESS LBRACE LPAREN
+%nonassoc DO STRUCT
 
 
 (* Entry points *)
@@ -1519,8 +1522,11 @@ module_arguments:
 module_expr_body: preceded(EQUAL,module_expr) | module_expr_structure { $1 };
 
 module_expr_structure:
-  LBRACE structure RBRACE
+  | LBRACE structure RBRACE
   { mkmod ~loc:(mklocation $startpos $endpos) (Pmod_structure($2)) }
+  | STRUCT structure END
+  { let () = print_warning "You should use Reason style module defenition" in
+  mkmod ~loc:(mklocation $startpos $endpos) (Pmod_structure($2)) }
 ;
 
 module_expr:
@@ -2469,7 +2475,8 @@ mark_position_exp
   ( LBRACE seq_expr RBRACE
     { add_brace_attr $2 }
   | DO seq_expr DONE
-    { add_brace_attr $2 }
+     { let () = print_warning "You shoud use brackets instead OCaml's 'do done'" in
+       add_brace_attr $2 }
   | LBRACE DOTDOTDOT expr_optional_constraint COMMA? RBRACE
     { let loc = mklocation $symbolstartpos $endpos in
       syntax_error_exp loc
@@ -2831,26 +2838,6 @@ optional_expr_extension:
  * Then unattributed_expr represents the concrete unattributed expr
  * while expr adds an attribute rule to unattributed_expr_template.
  *)
-
-boddy:
-  | LBRACE match_cases(seq_expr) RBRACE { $2 }
-  | WITH match_cases(expr) { $2 }
-;
-
-headd:
-  | SWITCH {}
-  | MATCH {}
-;
-
-match_switch:
-  headd optional_expr_extension simple_expr_no_constructor boddy { $2 (mkexp (Pexp_match ($3, $4))) }
-;
-
-in_eqal:
-  | IN {}
-  | EQUAL {}
-;
-
 %inline unattributed_expr_template(E):
 mark_position_exp
   ( simple_expr
@@ -2880,21 +2867,28 @@ mark_position_exp
    *)
   | FUN optional_expr_extension match_cases(expr) %prec below_BAR
     { $2 (mkexp (Pexp_function $3)) }
-  | match_switch { $1 }
+  | SWITCH optional_expr_extension simple_expr_no_constructor
+    LBRACE match_cases(seq_expr) RBRACE
+    { $2 (mkexp (Pexp_match ($3, $5))) }
+  | MATCH optional_expr_extension simple_expr_no_constructor
+    WITH match_cases(expr)
+    { let () = print_warning "You shoud use switch instead OCaml's match with" in 
+    $2 (mkexp (Pexp_match ($3, $5))) }
   | TRY optional_expr_extension simple_expr_no_constructor
     LBRACE match_cases(seq_expr) RBRACE
     { $2 (mkexp (Pexp_try ($3, $5))) }
-  | IF optional_expr_extension parenthesized_expr
+  | IF optional_expr_extension parenthesized_expr THEN?
        simple_expr ioption(preceded(ELSE,expr))
-    { $2 (mkexp (Pexp_ifthenelse($3, $4, $5))) }
+    { $2 (mkexp (Pexp_ifthenelse($3, $5, $6))) }
   | WHILE optional_expr_extension parenthesized_expr simple_expr
     { $2 (mkexp (Pexp_while($3, $4))) }
-  | FOR optional_expr_extension pattern in_eqal expr direction_flag simple_expr
-    braced_expr
-    { $2 (mkexp (Pexp_for($3, $5, $7, $6, $8))) }
-  | FOR optional_expr_extension LPAREN pattern in_eqal expr direction_flag expr RPAREN
+  | FOR optional_expr_extension LPAREN pattern IN expr direction_flag expr RPAREN
     simple_expr
     { $2 (mkexp (Pexp_for($4, $6, $8, $7, $10))) }
+  | FOR optional_expr_extension pattern EQUAL expr direction_flag simple_expr
+    braced_expr
+    { let () = print_warning "You shoud use Reason style 'for'" in
+      $2 (mkexp (Pexp_for($3, $5, $7, $6, $8))) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
     { let loc_colon = mklocation $startpos($2) $endpos($2) in
       let loc = mklocation $symbolstartpos $endpos in
@@ -3464,7 +3458,8 @@ match_case(EXPR):
         loc_start = $1.loc.loc_start
       }
     } in
-    Exp.case pat ?guard:None $4 }
+    let () = print_warning "You shoud use '=>' instead OCaml's '->'" in
+    Exp.case pat $4 }
 ;
 
 fun_def(DELIM, typ):
@@ -4180,13 +4175,13 @@ record_label_declaration:
     }
 ;
 
-%inline delim:
-  | SEMI {}
-  | COMMA { }
+%inline comma_or_semi:
+| COMMA { }
+| SEMI { let () = print_warning "You shoud use ',' instead OCaml's ';'" in () }
 ;
 
 record_declaration:
-  LBRACE lseparated_nonempty_list(delim, record_label_declaration) delim? RBRACE
+  LBRACE lseparated_nonempty_list(comma_or_semi, record_label_declaration) comma_or_semi? RBRACE
   { $2 }
 ;
 
@@ -4976,6 +4971,7 @@ single_attr_id:
   | LAZY        { "lazy" }
   | LET         { "let" }
   | SWITCH      { "switch" }
+  | MATCH       { "match" }
   | MODULE      { "module" }
   | MUTABLE     { "mutable" }
   | NEW         { "new" }
@@ -4998,7 +4994,6 @@ single_attr_id:
   | WHEN        { "when" }
   | WHILE       { "while" }
   | WITH        { "with" }
-  | MATCH       { "match" }
 (* mod/land/lor/lxor/lsl/lsr/asr are not supported for now *)
 ;
 
