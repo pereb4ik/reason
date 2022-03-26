@@ -3,19 +3,18 @@ maintainer: "Jordan Walke <jordojw@gmail.com>"
 authors: [ "Jordan Walke <jordojw@gmail.com>" ]
 license: "MIT"
 homepage: "https://github.com/reasonml/reason"
-doc: "http://reasonml.github.io/"
+doc: "https://reasonml.github.io/"
 bug-reports: "https://github.com/reasonml/reason/issues"
 dev-repo: "git://github.com/reasonml/reason.git"
 tags: [ "syntax" ]
 build: [
   ["dune" "build" "-p" name "-j" jobs]
-  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
-  "ocaml"         {>= "4.03" & < "4.14"}
+  "ocaml"         {>= "4.03" & < "4.15"}
   "dune"          {>= "1.4"}
   "ocamlfind"     {build}
-  "menhir"        {>= "20170418"}
+  "menhir"        {>= "20180523"}
   "merlin-extend" {>= "0.6"}
   "fix"
   "result"
