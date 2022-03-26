@@ -2476,7 +2476,8 @@ mark_position_exp
   ( LBRACE seq_expr RBRACE
     { add_brace_attr $2 }
   | DO seq_expr DONE
-     { let () = print_warning "You shoud use brackets instead OCaml's 'do done'" in
+    { let loc = mklocation $startpos $endpos in
+      let () = raise_warning Ocaml_do_done loc in
        add_brace_attr $2 }
   | LBRACE DOTDOTDOT expr_optional_constraint COMMA? RBRACE
     { let loc = mklocation $symbolstartpos $endpos in

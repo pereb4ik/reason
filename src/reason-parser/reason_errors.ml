@@ -39,6 +39,7 @@ type reason_warning =
   (* Warnings about Ocaml-style syntax aka Camlisms *)
   | Ocaml_struct
   | Ocaml_match of Location.t * Location.t
+  | Ocaml_do_done
 
 exception Reason_error of reason_error * Location.t
 exception Reason_warning of reason_warning * Location.t
@@ -142,6 +143,8 @@ let format_warning ppf = function
   "Ocaml-style module definition\nYou shoud use '{ }'."
   | Ocaml_match _ -> fprintf ppf 
   "Ocaml-style pattern matching\nYou shoud use 'switch { }'."
+  | Ocaml_do_done -> fprintf ppf 
+  "OCaml's 'do done'\nYou shoud use brackets instead"
 
 let report_warning ppf ~loc warn =
   Format.fprintf ppf "@[%a@]@."

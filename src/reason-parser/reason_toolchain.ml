@@ -173,6 +173,7 @@ module Create_parse_entrypoint (Toolchain_impl: Toolchain_spec) :Toolchain = str
       | Ocaml_match (loc1, loc2) ->
         let sub = [(loc1, "match"); (loc2, "with")] in
         Reason_errors.warning_attribute ~sub loc msg
+      | Ocaml_do_done -> Reason_errors.warning_attribute loc msg
     in
     List.map warn_attr warns
 
