@@ -28,23 +28,31 @@ type ast_error =
 
 type parsing_error = string
 
+type reason_warning =
+  | Ocaml_struct
+
 type reason_error =
   | Lexing_error of lexing_error
   | Parsing_error of parsing_error
   | Ast_error of ast_error
 
 exception Reason_error of reason_error * Location.t
+exception Reason_warning of reason_warning * Location.t
 
 val raise_error : reason_error -> Location.t -> unit
 val raise_fatal_error : reason_error -> Location.t -> 'a
 
+val raise_warning : reason_warning -> Location.t -> unit
+
 val recover_non_fatal_errors : (unit -> 'a) ->
-  ('a, exn) Result.result * (reason_error * Location.t) list
+  ('a, exn) Result.result * ((reason_error * Location.t) list * (reason_warning * Location.t) list)
 
 val recover_parser_error :
   (Location.t -> string -> 'a) -> Location.t -> string -> 'a
 
 val report_error : Format.formatter -> loc:Location.t -> reason_error -> unit
+
+val report_warning : Format.formatter -> loc:Location.t -> reason_warning -> unit
 
 val error_extension_node_from_recovery :
   Location.t -> string -> string Location.loc * Parsetree.payload
@@ -52,3 +60,5 @@ val error_extension_node_from_recovery :
 val error_extension_node :
   Location.t -> string -> string Location.loc * Parsetree.payload
 
+  val warning_attribute :
+  ?sub:(Location.t * string) list -> Location.t -> string -> Parsetree.attribute

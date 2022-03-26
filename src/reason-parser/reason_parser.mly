@@ -1525,8 +1525,9 @@ module_expr_structure:
   | LBRACE structure RBRACE
   { mkmod ~loc:(mklocation $startpos $endpos) (Pmod_structure($2)) }
   | STRUCT structure END
-  { let () = print_warning "You should use Reason style module defenition" in
-  mkmod ~loc:(mklocation $startpos $endpos) (Pmod_structure($2)) }
+  { let loc = mklocation $startpos $endpos in
+    let () = raise_warning Ocaml_struct loc in
+    mkmod ~loc:(mklocation $startpos $endpos) (Pmod_structure($2)) }
 ;
 
 module_expr:

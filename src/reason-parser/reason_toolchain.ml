@@ -163,6 +163,16 @@ module Create_parse_entrypoint (Toolchain_impl: Toolchain_spec) :Toolchain = str
     in
     List.map error_extension errors
 
+  let attrs_of_warnings warns =
+    ignore (Format.flush_str_formatter () : string);
+    let warn_attr (warn, loc) =
+      Reason_errors.report_warning Format.str_formatter ~loc warn;
+      let msg = Format.flush_str_formatter () in
+      match warn with
+      | Ocaml_struct -> Reason_errors.warning_attribute loc msg
+    in
+    List.map warn_attr warns
+
   let wrap_with_comments parsing_fun attach_fun lexbuf =
     let input_copy = Buffer.create 0 in
     let lexbuf = keep_from_lexbuf input_copy lexbuf in
@@ -177,11 +187,11 @@ module Create_parse_entrypoint (Toolchain_impl: Toolchain_spec) :Toolchain = str
           if !Reason_config.recoverable
           then Reason_errors.recover_non_fatal_errors
               (fun () -> parsing_fun lexer)
-          else (Ok (parsing_fun lexer), [])
+          else (Ok (parsing_fun lexer), ([],[]))
         in
         match result with
-        | Ok x, [] -> x
-        | Ok (x, ds), errors -> (attach_fun x (extensions_of_errors errors), ds)
+        | Ok x, ([],[]) -> x
+        | Ok (x, ds), (errors, warns) -> (attach_fun x (extensions_of_errors errors) (attrs_of_warnings warns), ds)
         | Error exn, _ -> raise exn
       in
       let unmodified_comments =
@@ -291,7 +301,7 @@ module Create_parse_entrypoint (Toolchain_impl: Toolchain_spec) :Toolchain = str
     else
       raise err
 
-  let ignore_attach_errors x _extensions =
+  let ignore_attach_errors x _extensions _attr =
     (* FIXME: attach errors in AST *) x
 
   (*
@@ -304,8 +314,8 @@ module Create_parse_entrypoint (Toolchain_impl: Toolchain_spec) :Toolchain = str
    * crash the process. TODO: Report more accurate location in those cases.
    *)
   let implementation_with_comments lexbuf =
-    let attach impl extensions =
-      (impl @ List.map Ast_helper.Str.extension extensions)
+    let attach impl extensions attr =
+      (impl @ List.map Ast_helper.Str.extension extensions @ List.map Ast_helper.Str.attribute attr)
     in
     try wrap_with_comments Toolchain_impl.implementation attach lexbuf
     with err ->
@@ -319,7 +329,7 @@ module Create_parse_entrypoint (Toolchain_impl: Toolchain_spec) :Toolchain = str
       (Ast_helper.Typ.mk ~loc (Parsetree.Ptyp_extension error), [])
 
   let interface_with_comments lexbuf =
-    let attach impl extensions =
+    let attach impl extensions _attr =
       (impl @ List.map Ast_helper.Sig.extension extensions)
     in
     try wrap_with_comments Toolchain_impl.interface attach lexbuf

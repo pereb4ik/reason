@@ -35,7 +35,12 @@ type reason_error =
   | Parsing_error of parsing_error
   | Ast_error of ast_error
 
+type reason_warning =
+  (* Warnings about Ocaml-style syntax aka Camlisms *)
+  | Ocaml_struct
+
 exception Reason_error of reason_error * Location.t
+exception Reason_warning of reason_warning * Location.t
 
 let catch_errors
   : (reason_error * Location.t) list ref option ref
@@ -49,17 +54,30 @@ let raise_error error loc =
 let raise_fatal_error error loc =
   raise (Reason_error (error, loc))
 
+let catch_warnings
+  : (reason_warning * Location.t) list ref option ref
+  = ref None
+
+let raise_warning warn loc =
+  match !catch_warnings with
+  | None -> raise (Reason_warning (warn, loc))
+  | Some caught -> caught := (warn, loc) :: !caught
+
 let recover_non_fatal_errors f =
-  let catch_errors0 = !catch_errors in
-  let errors = ref [] in
+  let catch_errors0 = !catch_errors
+  and catch_warnings0 = !catch_warnings in
+  let errors = ref [] 
+  and warnings = ref [] in
   catch_errors := Some errors;
+  catch_warnings := Some warnings;
   let result =
     match f () with
     | x -> Result.Ok x
     | exception exn -> Result.Error exn
   in
   catch_errors := catch_errors0;
-  (result, List.rev !errors)
+  catch_warnings := catch_warnings0;
+  (result, (List.rev !errors, List.rev !warnings))
 
 (* Report lexing errors *)
 
@@ -118,11 +136,23 @@ let recover_parser_error f loc msg =
   then f loc msg
   else raise_fatal_error (Parsing_error msg) loc
 
+let format_warning ppf = function
+  | Ocaml_struct -> fprintf ppf
+  "Ocaml-style module definition\nYou shoud use '{ }'."
+
+let report_warning ppf ~loc warn =
+  Format.fprintf ppf "@[%a@]@."
+    (Ocaml_util.print_error loc format_warning) warn
+
 let () =
   Printexc.register_printer (function
       | Reason_error (err, loc) ->
         let _ = Format.flush_str_formatter () in
         report_error Format.str_formatter ~loc err;
+        Some (Format.flush_str_formatter ())
+      | Reason_warning (warn, loc) ->
+        let _ = Format.flush_str_formatter () in
+        report_warning Format.str_formatter ~loc warn;
         Some (Format.flush_str_formatter ())
       | _ -> None
     )
@@ -135,6 +165,19 @@ let str_eval_message text = {
   pstr_desc = Pstr_eval (
       { pexp_loc = Location.none;
         pexp_desc = Pexp_constant (Parsetree.Pconst_string (text, Location.none, None));
+        pexp_attributes = [];
+        pexp_loc_stack = [];
+      },
+      []
+    );
+}
+
+let str_eval loc text = {
+  Parsetree.
+  pstr_loc = Location.none;
+  pstr_desc = Pstr_eval (
+      { pexp_loc = Location.none;
+        pexp_desc = Pexp_constant (Parsetree.Pconst_string (text, loc, None));
         pexp_attributes = [];
         pexp_loc_stack = [];
       },
@@ -163,11 +206,14 @@ let error_extension_node_from_recovery loc msg =
 let error_extension_node loc msg =
   recover_parser_error (fun loc msg ->
     let str = { Location. loc; txt = "ocaml.error" } in
-    let payload = [
-      str_eval_message msg;
-      (* if_highlight *)
-      str_eval_message msg;
-    ] in
+    let payload = [ str_eval_message msg ] in
     (str, Parsetree.PStr payload)
   ) loc msg
 
+let warning_attribute ?(sub=[]) loc msg =
+  let structure = List.map (fun (loc, msg) -> str_eval loc msg) sub in
+  Parsetree.{
+    attr_name = { Location. loc; txt = "reason.warning" };
+    attr_payload = Parsetree.PStr (str_eval_message msg :: structure);
+    attr_loc = loc;
+  }
