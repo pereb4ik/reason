@@ -2873,8 +2873,11 @@ mark_position_exp
     { $2 (mkexp (Pexp_match ($3, $5))) }
   | MATCH optional_expr_extension simple_expr_no_constructor
     WITH match_cases(expr)
-    { let () = print_warning "You shoud use switch instead OCaml's match with" in 
-    $2 (mkexp (Pexp_match ($3, $5))) }
+    { let loc = mklocation $startpos $endpos in
+      let locm = mklocation $startpos($1) $endpos($1) in
+      let locw = mklocation $startpos($4) $endpos($4) in
+      let () = raise_warning (Ocaml_match (locm, locw)) loc in
+      $2 (mkexp (Pexp_match ($3, $5))) }
   | TRY optional_expr_extension simple_expr_no_constructor
     LBRACE match_cases(seq_expr) RBRACE
     { $2 (mkexp (Pexp_try ($3, $5))) }

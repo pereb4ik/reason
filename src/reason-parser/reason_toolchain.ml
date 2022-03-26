@@ -170,6 +170,9 @@ module Create_parse_entrypoint (Toolchain_impl: Toolchain_spec) :Toolchain = str
       let msg = Format.flush_str_formatter () in
       match warn with
       | Ocaml_struct -> Reason_errors.warning_attribute loc msg
+      | Ocaml_match (loc1, loc2) ->
+        let sub = [(loc1, "match"); (loc2, "with")] in
+        Reason_errors.warning_attribute ~sub loc msg
     in
     List.map warn_attr warns
 

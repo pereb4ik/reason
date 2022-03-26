@@ -30,6 +30,7 @@ type parsing_error = string
 
 type reason_warning =
   | Ocaml_struct
+  | Ocaml_match of Location.t * Location.t
 
 type reason_error =
   | Lexing_error of lexing_error
