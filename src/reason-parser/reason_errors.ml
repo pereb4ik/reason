@@ -36,10 +36,11 @@ type reason_error =
   | Ast_error of ast_error
 
 type reason_warning =
-  (* Warnings about Ocaml-style syntax aka Camlisms *)
+  (* Warnings caused by Ocaml-style syntax aka Camlisms *)
   | Ocaml_struct
   | Ocaml_match of Location.t * Location.t
   | Ocaml_do_done
+  | Other_Ocaml_warning of string
 
 exception Reason_error of reason_error * Location.t
 exception Reason_warning of reason_warning * Location.t
@@ -60,9 +61,11 @@ let catch_warnings
   : (reason_warning * Location.t) list ref option ref
   = ref None
 
+let report_warning_ref = ref (fun _ ~loc:_ _ -> ())
+
 let raise_warning warn loc =
   match !catch_warnings with
-  | None -> raise (Reason_warning (warn, loc))
+  | None -> !report_warning_ref Format.err_formatter ~loc warn
   | Some caught -> caught := (warn, loc) :: !caught
 
 let recover_non_fatal_errors f =
@@ -145,10 +148,18 @@ let format_warning ppf = function
   "Ocaml-style pattern matching\nYou shoud use 'switch { }'."
   | Ocaml_do_done -> fprintf ppf 
   "OCaml's 'do done'\nYou shoud use brackets instead"
+  | Other_Ocaml_warning msg ->
+    fprintf ppf "%s" msg
 
-let report_warning ppf ~loc warn =
-  Format.fprintf ppf "@[%a@]@."
-    (Ocaml_util.print_error loc format_warning) warn
+let report_warning ppf ~loc = function
+  | Other_Ocaml_warning _ as warn ->
+    Format.fprintf ppf "@[%a\n%a@]@."
+    Ocaml_util.print_loc loc format_warning warn
+  | warn ->
+    Format.fprintf ppf "@[%a@]@."
+  (Ocaml_util.print_error loc format_warning) warn
+
+let () = (report_warning_ref := report_warning)
 
 let () =
   Printexc.register_printer (function

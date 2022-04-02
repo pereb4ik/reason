@@ -1058,8 +1058,6 @@ let add_brace_attr expr =
   in
   { expr with pexp_attributes= attr :: expr.pexp_attributes }
 
-let print_warning msg =
-  Printf.fprintf stderr "%s%!\n" msg
 
 %}
 
@@ -1526,7 +1524,7 @@ module_expr_structure:
   { mkmod ~loc:(mklocation $startpos $endpos) (Pmod_structure($2)) }
   | STRUCT structure END
   { let loc = mklocation $startpos $endpos in
-    let () = raise_warning Ocaml_struct loc in
+    raise_warning Ocaml_struct loc;
     mkmod ~loc:(mklocation $startpos $endpos) (Pmod_structure($2)) }
 ;
 
@@ -2477,7 +2475,7 @@ mark_position_exp
     { add_brace_attr $2 }
   | DO seq_expr DONE
     { let loc = mklocation $startpos $endpos in
-      let () = raise_warning Ocaml_do_done loc in
+      raise_warning Ocaml_do_done loc;
        add_brace_attr $2 }
   | LBRACE DOTDOTDOT expr_optional_constraint COMMA? RBRACE
     { let loc = mklocation $symbolstartpos $endpos in
@@ -2877,7 +2875,7 @@ mark_position_exp
     { let loc = mklocation $startpos $endpos in
       let locm = mklocation $startpos($1) $endpos($1) in
       let locw = mklocation $startpos($4) $endpos($4) in
-      let () = raise_warning (Ocaml_match (locm, locw)) loc in
+      raise_warning (Ocaml_match (locm, locw)) loc;
       $2 (mkexp (Pexp_match ($3, $5))) }
   | TRY optional_expr_extension simple_expr_no_constructor
     LBRACE match_cases(seq_expr) RBRACE
@@ -2892,7 +2890,9 @@ mark_position_exp
     { $2 (mkexp (Pexp_for($4, $6, $8, $7, $10))) }
   | FOR optional_expr_extension pattern EQUAL expr direction_flag simple_expr
     braced_expr
-    { let () = print_warning "You shoud use Reason style 'for'" in
+    { let loc = mklocation $startpos $endpos in
+      let msg = "You shoud use Reason-style 'for'" in
+      raise_warning (Other_Ocaml_warning msg) loc;
       $2 (mkexp (Pexp_for($3, $5, $7, $6, $8))) }
   | LPAREN COLONCOLON RPAREN LPAREN expr COMMA expr RPAREN
     { let loc_colon = mklocation $startpos($2) $endpos($2) in
@@ -3463,7 +3463,9 @@ match_case(EXPR):
         loc_start = $1.loc.loc_start
       }
     } in
-    let () = print_warning "You shoud use '=>' instead OCaml's '->'" in
+    let loc = mklocation $startpos($3) $endpos($3) in
+    let msg = "You shoud use '=>' instead OCaml's '->'" in
+    raise_warning (Other_Ocaml_warning msg) loc;
     Exp.case pat $4 }
 ;
 
@@ -4182,7 +4184,10 @@ record_label_declaration:
 
 %inline comma_or_semi:
 | COMMA { }
-| SEMI { let () = print_warning "You shoud use ',' instead OCaml's ';'" in () }
+| SEMI { 
+  let loc = mklocation $startpos $endpos in
+  let msg = "You shoud use ',' instead OCaml's ';'" in
+  raise_warning (Other_Ocaml_warning msg) loc; }
 ;
 
 record_declaration:

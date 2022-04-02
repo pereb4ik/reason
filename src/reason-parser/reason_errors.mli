@@ -6,6 +6,9 @@
    - _abstract parsing errors_, thrown by hand-written semantic actions or
      further AST checks, when the source text was incorrect but this restriction
      was too fine to be captured by the grammar rules
+    
+   Reason warnings - mostly parsing warnigns from correct for Ocaml grammar 
+   rules, but not for Reason
 *)
 
 open Reason_omp.Ast_411
@@ -32,6 +35,7 @@ type reason_warning =
   | Ocaml_struct
   | Ocaml_match of Location.t * Location.t
   | Ocaml_do_done
+  | Other_Ocaml_warning of string
 
 type reason_error =
   | Lexing_error of lexing_error
@@ -62,5 +66,5 @@ val error_extension_node_from_recovery :
 val error_extension_node :
   Location.t -> string -> string Location.loc * Parsetree.payload
 
-  val warning_attribute :
+val warning_attribute :
   ?sub:(Location.t * string) list -> Location.t -> string -> Parsetree.attribute
